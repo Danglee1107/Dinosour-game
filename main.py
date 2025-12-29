@@ -26,7 +26,6 @@ DINSOUR_WIDTH = 30
 DINOSOUR_HEIGHT = 60
 dinosour =np.array([100, LAND - DINOSOUR_HEIGHT, DINSOUR_WIDTH, DINOSOUR_HEIGHT], dtype= np.float64)
 
-
 START_POINT = (0, LAND)
 END_POINT = (800, LAND)
 MAX_JUMP = 7
@@ -46,6 +45,7 @@ obs_count = 0
 # Bools
 running = True
 is_jump = False
+is_touch = False
 
 WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 
@@ -57,7 +57,6 @@ class Obstacles:
         self.pos= np.array(pos, dtype = np.float64)
         self.size= np.array(size, dtype = np.float64)
 
-
 def create_obs():
     obstacle = Obstacles(pos=[randint(WIDTH, WIDTH + 500), LAND - OBSTACLE_HEIGHT],
                          size=[choice(OBSTACLE_WIDTH), OBSTACLE_HEIGHT])
@@ -65,8 +64,7 @@ def create_obs():
 
 
 def draw_obs(obs: Obstacles):
-    pygame.draw.rect(WINDOW, ORANGE, [obs.pos,obs.size]) # type: ignore
-
+    pygame.draw.rect(WINDOW, ORANGE, [obs.pos, obs.size]) #type: ignore
 
 # game loop
 while running:
@@ -98,6 +96,7 @@ while running:
             jump_vel = MAX_JUMP
             m = 1
 
+    dinosour_rect = pygame.Rect(dinosour) #type: ignore
     obs_count += clock.tick(FPS)
     if obs_count > obs_increment:
         create_obs()
@@ -105,28 +104,37 @@ while running:
         obs_count = 0
         speed += 0.2
 
-    for obs in obstacles:
+    for obs in obstacles[:]:
         obs.pos[0] -= speed
 
-    for obs in obstacles:
         if obs.pos[0] + obs.size[0] < 0:
             obstacles.remove(obs)
+
+        obs_rect = pygame.Rect(obs.pos,obs.size) # type: ignore
+        if obs_rect.colliderect(dinosour_rect):
+            is_touch = True
 
     # Check the current position of the object
     # print(dinosour)
 
-    # Check the number of obstacle 
-    print(obstacles)
+    # Check the number of obstacles
+    # print(obstacles)
+
 
     WINDOW.fill(BLACK)
     pygame.display.set_caption("Dinosour Game")
     pygame.draw.rect(WINDOW, RED, dinosour) # type: ignore
 
-    for obs in obstacles:
+    for obs in obstacles[:]:
         draw_obs(obs)
 
     pygame.draw.line(WINDOW, WHITE, START_POINT, END_POINT, width= 3)
 
     pygame.display.flip()
+
+    if is_touch:
+        print("GAME OVER")
+        break
+
 
 pygame.quit()
