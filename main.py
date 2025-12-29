@@ -1,28 +1,31 @@
 import pygame
 import numpy as np
-from random import choice
+from random import choice, randint
 from typing import Sequence
+
 
 pygame.init()
 clock = pygame.time.Clock()
 FPS = 60
 
-class Obstacles:
-    def __init__(self, attribute: Sequence[int | float]) -> None:
-        self.attribute = np.array(attribute, dtype = np.float64)
 
 # Size
-WIDTH, HEIGHT = 800, 400
+WIDTH = 800
+HEIGHT = 400
+LAND = HEIGHT // 2
+
 
 # Color
 BLACK = (0,0,0)
 RED = (255,0,0)
 WHITE = (255,255,255)
+ORANGE = (255,165,0)
 
-LAND = HEIGHT // 2
+
 DINSOUR_WIDTH = 30
 DINOSOUR_HEIGHT = 60
 dinosour =np.array([100, LAND - DINOSOUR_HEIGHT, DINSOUR_WIDTH, DINOSOUR_HEIGHT], dtype= np.float64)
+
 
 START_POINT = (0, LAND)
 END_POINT = (800, LAND)
@@ -30,28 +33,40 @@ MAX_JUMP = 7
 jump_vel = MAX_JUMP
 m = 1
 
+
 OBSTACLE_WIDTH = [30, 40, 50, 60, 70]
 OBSTACLE_HEIGHT = 30
-# obstacle = np.array([800 - dinosour[0], LAND - OBSTACLE_HEIGHT, OBSTACLE_WIDTH, OBSTACLE_HEIGHT], dtype= np.float64)
 obstacles = []
 
 speed = 10
 obs_increment = 1000
 obs_count = 0
 
-GRAVITY = 0.2
 
+# Bools
 running = True
 is_jump = False
 
 WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
 
+
+class Obstacles:
+    def __init__(self, pos: Sequence[int | float],
+                 size: Sequence[int | float]) -> None:
+
+        self.pos= np.array(pos, dtype = np.float64)
+        self.size= np.array(size, dtype = np.float64)
+
+
 def create_obs():
-    obstacle = Obstacles([1000, LAND - OBSTACLE_HEIGHT, choice(OBSTACLE_WIDTH), OBSTACLE_HEIGHT])
+    obstacle = Obstacles(pos=[randint(WIDTH, WIDTH + 500), LAND - OBSTACLE_HEIGHT],
+                         size=[choice(OBSTACLE_WIDTH), OBSTACLE_HEIGHT])
     obstacles.append(obstacle)
 
+
 def draw_obs(obs: Obstacles):
-    pygame.draw.rect(WINDOW, RED, obs) # type: ignore
+    pygame.draw.rect(WINDOW, ORANGE, [obs.pos,obs.size]) # type: ignore
+
 
 # game loop
 while running:
@@ -64,8 +79,8 @@ while running:
         elif event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
                 running = False  # exit the game when ESC is pressed
-    keys = pygame.key.get_pressed()
 
+    keys = pygame.key.get_pressed()
     if keys[pygame.K_SPACE]:
         is_jump = True
 
@@ -91,11 +106,12 @@ while running:
         speed += 0.2
 
     for obs in obstacles:
-        obs.attribute[0] -= speed
+        obs.pos[0] -= speed
 
     for obs in obstacles:
-        if obs.attribute[0] + obs.attribute[3] < 0:
+        if obs.pos[0] + obs.size[0] < 0:
             obstacles.remove(obs)
+
     # Check the current position of the object
     # print(dinosour)
 
@@ -107,7 +123,7 @@ while running:
     pygame.draw.rect(WINDOW, RED, dinosour) # type: ignore
 
     for obs in obstacles:
-        draw_obs(obs.attribute)
+        draw_obs(obs)
 
     pygame.draw.line(WINDOW, WHITE, START_POINT, END_POINT, width= 3)
 
