@@ -24,7 +24,7 @@ ORANGE = (255,165,0)
 
 DINSOUR_WIDTH = 30
 DINOSOUR_HEIGHT = 60
-dinosour =np.array([100, LAND - DINOSOUR_HEIGHT, DINSOUR_WIDTH, DINOSOUR_HEIGHT], dtype= np.float64)
+dinosour = pygame.Rect(100, LAND - DINOSOUR_HEIGHT, DINSOUR_WIDTH, DINOSOUR_HEIGHT)
 
 START_POINT = (0, LAND)
 END_POINT = (800, LAND)
@@ -84,19 +84,19 @@ while running:
 
     if is_jump:
         F = (1 / 2)*m*(jump_vel**2)
-        dinosour[1] -= F
+        dinosour.y -= F #type: ignore
         jump_vel -= 0.5
         if jump_vel < 0:
             m = -1
 
         # if jump_vel == MIN_JUMP:
-        if dinosour[1] + DINOSOUR_HEIGHT >= LAND:
+        if dinosour.y + DINOSOUR_HEIGHT >= LAND:
             is_jump = False
+            dinosour.y = LAND - DINOSOUR_HEIGHT
 
             jump_vel = MAX_JUMP
             m = 1
 
-    dinosour_rect = pygame.Rect(dinosour) #type: ignore
     obs_count += clock.tick(FPS)
     if obs_count > obs_increment:
         create_obs()
@@ -111,7 +111,7 @@ while running:
             obstacles.remove(obs)
 
         obs_rect = pygame.Rect(obs.pos,obs.size) # type: ignore
-        if obs_rect.colliderect(dinosour_rect):
+        if obs_rect.colliderect(dinosour):
             is_touch = True
 
     # Check the current position of the object
