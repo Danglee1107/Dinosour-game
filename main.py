@@ -6,7 +6,7 @@ from typing import Sequence
 
 pygame.init()
 clock = pygame.time.Clock()
-FPS = 60
+FPS = 120
 
 
 # Size
@@ -28,7 +28,8 @@ dinosour = pygame.Rect(100, LAND - DINOSOUR_HEIGHT, DINSOUR_WIDTH, DINOSOUR_HEIG
 
 START_POINT = (0, LAND)
 END_POINT = (800, LAND)
-MAX_JUMP = 7
+MAX_JUMP = 5
+GRAVITY = 0.2
 jump_vel = MAX_JUMP
 m = 1
 
@@ -37,7 +38,7 @@ OBSTACLE_WIDTH = [30, 40, 50, 60, 70]
 OBSTACLE_HEIGHT = 30
 obstacles = []
 
-speed = 10
+speed = 5
 obs_increment = 1000
 obs_count = 0
 
@@ -85,11 +86,10 @@ while running:
     if is_jump:
         F = (1 / 2)*m*(jump_vel**2)
         dinosour.y -= F #type: ignore
-        jump_vel -= 0.5
+        jump_vel -= GRAVITY
         if jump_vel < 0:
             m = -1
 
-        # if jump_vel == MIN_JUMP:
         if dinosour.y + DINOSOUR_HEIGHT >= LAND:
             is_jump = False
             dinosour.y = LAND - DINOSOUR_HEIGHT
