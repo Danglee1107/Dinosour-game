@@ -36,6 +36,7 @@ dinosour = pygame.Rect(100, LAND - DINOSOUR_HEIGHT, DINOSOUR_WIDTH, DINOSOUR_HEI
 # Cactus (obstacles)
 OBSTACLE_WIDTH = [30, 40, 50, 60, 70]
 OBSTACLE_HEIGHT = [40, 50, 60]
+OBS_SPEED_INCREMENT = 0.2
 obstacles = []
 obs_speed= 5
 obs_increment = 1000
@@ -193,10 +194,12 @@ while running:
         create_obs()
         obs_increment = max(300, obs_increment - 5)
         obs_count = 0
-        obs_speed += 0.2
+        obs_speed += OBS_SPEED_INCREMENT
 
+
+    # Obstacles
     for obs in obstacles[:]:
-        obs.pos[0] -=obs_speed
+        obs.pos[0] -= obs_speed
 
         if obs.pos[0] + obs.size[0] < 0:
             obstacles.remove(obs)
@@ -205,12 +208,15 @@ while running:
         if obs_rect.colliderect(dinosour):
             is_touch = True
 
+
     # Check the current position of the object
     # print(dinosour)
 
     # Check the number of obstacles
     # print(obstacles)
 
+
+    # Clouds
     if current_time - last_spawn >= CLOUD_SPAWN_INTERVAL:
         create_cloud()
         last_spawn = current_time
@@ -219,6 +225,7 @@ while running:
         cloud.pos[0] -= CLOUD_SPEED
         if cloud.pos[0] + cloud.size[0] < 0:
             clouds.remove(cloud)
+
 
     WINDOW.fill(BLACK)
     pygame.display.set_caption("Dinosour Game")
