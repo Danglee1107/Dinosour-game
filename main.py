@@ -1,248 +1,198 @@
 # Import here
 import pygame
-import numpy as np
-from random import choice, randint, getrandbits
-from typing import Sequence
+from random import choice, choices, randint
+from function import create_obj, draw_obj
+from properties import (Config, Clouds, Player, GameFlags,
+                        JumpConfig, Cactus, Color, Birds)
 
 
 pygame.init()
 clock = pygame.time.Clock()
-FPS = 120
 
 
-# Window size
-WIDTH = 1000
-HEIGHT = 500
-
-LAND = HEIGHT // 2
-START_POINT = (0, LAND)
-END_POINT = (WIDTH, LAND)
-
-# Color
-BLACK = (0,0,0)
-WHITE = (255,255,255)
-ORANGE = (255,165,0)
-RED = (255,0,0)
-GREEN = (0,255,0)
-BLUE = (0,0,255)
+dinosour = pygame.Rect(100,
+                       Config.GROUND_Y- Player.DINOSOUR_HEIGHT,
+                       Player.DINOSOUR_WIDTH,
+                       Player.DINOSOUR_HEIGHT)
 
 
-# Dino
-DINOSOUR_WIDTH = 30
-DINOSOUR_HEIGHT = 50
-dinosour = pygame.Rect(100, LAND - DINOSOUR_HEIGHT, DINOSOUR_WIDTH, DINOSOUR_HEIGHT)
-
-
-# Cactus (obstacles)
-OBSTACLE_WIDTH = [30, 40, 50, 60, 70]
-OBSTACLE_HEIGHT = [40, 50, 60]
-OBS_SPEED_INCREMENT = 0.2
 obstacles = []
 obs_speed= 5
 obs_increment = 1000
 obs_count = 0
 
 
-# Birds (obstacles)
-BIRD_WIDTH = 30
-BIRD_HEIGHT = 30
-h = [3,40,60]
-
-
-# Clouds (decorative objects)
-CLOUD_WIDTH = 30
-CLOUD_HEIGHT = 20
-CLOUD_SPEED = 1
-MAX_CLOUD = 3
-CLOUD_SPAWN_INTERVAL = 1000 # ms
 last_spawn= 0
-cloud_h = [h for h in range(10, 125, 10)]
 clouds: list = []
 
 
-# properties
-MAX_JUMP = 5
-GRAVITY = 0.2
-jump_vel = MAX_JUMP
-m = 1
+WINDOW = pygame.display.set_mode(
+    (Config.WIDTH, Config.HEIGHT),
+    pygame.SCALED | pygame.DOUBLEBUF
+)
+
+def main() -> None:
+    # modified global variables
+    global obs_count
+    global obs_increment
+    global obs_speed
+    global last_spawn
+
+    # game loop
+    while GameFlags.running:
+        dt = clock.tick(Config.FPS) / 1000
+        current_time = pygame.time.get_ticks()
+
+        # for loop through the event queue
+        for event in pygame.event.get():
+            # Check for QUIT event
+            if event.type == pygame.QUIT:
+                GameFlags.running = False
+
+            # button pressed
+            if event.type == pygame.KEYDOWN:
+
+                if event.key == pygame.K_DOWN:
+                    if not GameFlags.is_jump:
+                        dinosour.w = Player.DINOSOUR_HEIGHT
+                        dinosour.h = Player.DINOSOUR_WIDTH
+                        dinosour.y = Config.GROUND_Y - dinosour.h
+                        GameFlags.disable_jump = True
+
+                    if not GameFlags.down_button_held:
+                        GameFlags.down_button_held = True
+
+            # button released
+            if event.type == pygame.KEYUP:
+
+                if event.key == pygame.K_DOWN:
+                    dinosour.w = Player.DINOSOUR_WIDTH
+                    dinosour.h = Player.DINOSOUR_HEIGHT
+
+                    dinosour.y = Config.GROUND_Y - dinosour.h
+                    GameFlags.disable_jump = False
+                    GameFlags.down_button_held = False
+
+        # Hold button
+        if GameFlags.down_button_held:
+            if dinosour.y == Config.GROUND_Y - Player.DINOSOUR_HEIGHT:
+                dinosour.w = Player.DINOSOUR_HEIGHT
+                dinosour.h = Player.DINOSOUR_WIDTH
+                dinosour.y = Config.GROUND_Y - dinosour.h
+                GameFlags.disable_jump = True
+
+        # Jump physics
+        keys = pygame.key.get_pressed()
+        if not GameFlags.disable_jump:
+            if keys[pygame.K_SPACE]:
+                GameFlags.is_jump = True
+
+            if GameFlags.is_jump:
+                F = (1 / 2)* JumpConfig.mass*( JumpConfig.jump_velocity**2)
+                dinosour.y -= F #type: ignore
+                JumpConfig.jump_velocity -= (JumpConfig.GRAVITY # type: ignore
+                                             if not GameFlags.down_button_held
+                                             else JumpConfig.GRAVITY *2)
+
+                if JumpConfig.jump_velocity < 0:
+                     JumpConfig.mass = -1
+
+                if dinosour.y + Player.DINOSOUR_HEIGHT >= Config.GROUND_Y:
+                    GameFlags.is_jump = False
+                    dinosour.y = Config.GROUND_Y - Player.DINOSOUR_HEIGHT
+
+                    JumpConfig.jump_velocity = JumpConfig.MAX_JUMP_HEIGHT
+                    JumpConfig.mass = 1
+
+        # Increase difficulty when go further
+        obs_count += dt * 1000
+        if obs_count > obs_increment:
+
+            is_bird = bool(choices([1,0], weights= [0.3,0.7])[0]) # 1 for bird and 0 for cactus
+            if is_bird:
+                rand_height = choice(Birds.BIRDS_ALTITUDES)
+                obs = create_obj(obj_x= randint(Config.WIDTH, Config.WIDTH + 500),
+                                obj_y= Config.GROUND_Y - Birds.BIRD_HEIGHT - rand_height,
+                                obj_width= Birds.BIRD_WIDTH,
+                                obj_height= Birds.BIRD_HEIGHT,
+                                status= is_bird)
+
+            else:
+                rand_height = choice(Cactus.OBSTACLE_HEIGHT)
+                obs = create_obj(obj_x= randint(Config.WIDTH, Config.WIDTH + 500),
+                                obj_y= Config.GROUND_Y - rand_height,
+                                obj_width= choice(Cactus.OBSTACLE_WIDTH),
+                                obj_height= rand_height,
+                                status= is_bird)
+            # obs.pos[0] = float(obs.pos[0])
+            obstacles.append(obs)
+
+            obs_increment = max(300, obs_increment - 5)
+            obs_count = 0
+            obs_speed += Cactus.OBSTACLE_SPEED_INCREMENT
 
 
-# Bools
-running = True
-is_jump = False
-is_touch = False
-down_button_held = False
-disable_jump = False
+        # Obstacles
+        for obs in obstacles[:]:
+            obs.pos[0] -= obs_speed * dt * 100
+            # obs.pos[0] = int(obs.pos[0])
+
+            if obs.pos[0] + obs.size[0] < 0:
+                obstacles.remove(obs)
+
+            obs_rect = pygame.Rect(obs.pos,obs.size) # type: ignore
+            if obs_rect.colliderect(dinosour):
+                GameFlags.is_touch = True
 
 
-WINDOW = pygame.display.set_mode((WIDTH, HEIGHT))
+        # Check the current position of the object
+        # print(dinosour)
+
+        # Check the number of obstacles
+        # print(obstacles)
 
 
-class Clouds:
-    def __init__(self, pos: Sequence[int | float],
-                 size: Sequence[int | float]) -> None:
+        # Clouds
+        if current_time - last_spawn >= Clouds.CLOUD_SPAWN_INTERVAL:
 
-        self.pos= np.array(pos, dtype = np.float64)
-        self.size= np.array(size, dtype = np.float64)
+            cloud = create_obj(obj_x= randint(Config.WIDTH, Config.WIDTH + 500),
+                            obj_y= choice(Clouds.CLOUD_ALTITUDES),
+                            obj_width= Clouds.CLOUD_WIDTH,
+                            obj_height= Clouds.CLOUD_HEIGHT)
 
+            clouds.append(cloud)
+            last_spawn = current_time
 
-class Obstacles:
-    def __init__(self, pos: Sequence[int | float],
-                 size: Sequence[int | float], is_bird: bool= False) -> None:
-
-        self.pos= np.array(pos, dtype = np.float64)
-        self.size= np.array(size, dtype = np.float64)
-        self.is_bird = is_bird
-
-
-def create_obs():
-    is_bird = bool(getrandbits(1)) # 1 for bird and 0 for cactus
-    if is_bird:
-        rand_height = choice(h)
-        obstacle = Obstacles(pos=[randint(WIDTH, WIDTH + 500), LAND - BIRD_HEIGHT - rand_height],
-                            size=[BIRD_WIDTH, BIRD_HEIGHT], is_bird= True)
-    else:
-        rand_height = choice(OBSTACLE_HEIGHT)
-        obstacle = Obstacles(pos=[randint(WIDTH, WIDTH + 500), LAND - rand_height],
-                            size=[choice(OBSTACLE_WIDTH),rand_height])
-    obstacles.append(obstacle)
+        for cloud in clouds[:]:
+            cloud.pos[0] -= Clouds.CLOUD_SPEED * dt * 60 #type: ignore
+            if cloud.pos[0] + cloud.size[0] < 0:
+                clouds.remove(cloud)
 
 
-def create_cloud():
-    cloud = Clouds(pos= [randint(WIDTH, WIDTH + 500), choice(cloud_h)],
-                size= [CLOUD_WIDTH, CLOUD_HEIGHT])
+        WINDOW.fill(Color.BLACK)
 
-    clouds.append(cloud)
+        for cloud in clouds[:]:
+            draw_obj(WINDOW, Color.BLUE, cloud) # Add clouds
 
-
-def draw_clouds(cloud: Clouds):
-    pygame.draw.rect(WINDOW, BLUE, [cloud.pos, cloud.size]) #type: ignore
+        pygame.draw.rect(WINDOW, Color.RED, dinosour) # type: ignore
 
 
-def draw_obs(obs: Obstacles):
-    if obs.is_bird:
-        pygame.draw.rect(WINDOW, GREEN, [obs.pos, obs.size]) #type: ignore
-    else:
-        pygame.draw.rect(WINDOW, ORANGE, [obs.pos, obs.size]) #type: ignore
-
-# game loop
-while running:
-    current_time = pygame.time.get_ticks()
-
-    # for loop through the event queue
-    for event in pygame.event.get():
-        # Check for QUIT event
-        if event.type == pygame.QUIT:
-            running = False
-
-        # button pressed
-        if event.type == pygame.KEYDOWN:
-
-            if event.key == pygame.K_DOWN:
-                if not is_jump:
-                    dinosour.w = DINOSOUR_HEIGHT
-                    dinosour.h = DINOSOUR_WIDTH
-                    dinosour.y = LAND - dinosour.h
-                    disable_jump = True
-
-                if not down_button_held:
-                    down_button_held = True
-
-        # button released
-        if event.type == pygame.KEYUP:
-
-            if event.key == pygame.K_DOWN:
-                dinosour.w = DINOSOUR_WIDTH
-                dinosour.h = DINOSOUR_HEIGHT
-
-                dinosour.y = LAND - dinosour.h
-                disable_jump = False
-                down_button_held = False
-
-    # Hold button
-    if down_button_held:
-        if dinosour.y == LAND - DINOSOUR_HEIGHT:
-            dinosour.w = DINOSOUR_HEIGHT
-            dinosour.h = DINOSOUR_WIDTH
-            dinosour.y = LAND - dinosour.h
-            disable_jump = True
-
-    # Jump physics
-    keys = pygame.key.get_pressed()
-    if not disable_jump:
-        if keys[pygame.K_SPACE]:
-            is_jump = True
-
-        if is_jump:
-            F = (1 / 2)*m*(jump_vel**2)
-            dinosour.y -= F #type: ignore
-            jump_vel -= GRAVITY if not down_button_held else GRAVITY *2
-
-            if jump_vel < 0:
-                m = -1
-
-            if dinosour.y + DINOSOUR_HEIGHT >= LAND:
-                is_jump = False
-                dinosour.y = LAND - DINOSOUR_HEIGHT
-
-                jump_vel = MAX_JUMP
-                m = 1
-
-    # Increase difficulty when go further
-    obs_count += clock.tick(FPS)
-    if obs_count > obs_increment:
-        create_obs()
-        obs_increment = max(300, obs_increment - 5)
-        obs_count = 0
-        obs_speed += OBS_SPEED_INCREMENT
+        for obs in obstacles[:]:
+            if obs.status:
+                draw_obj(WINDOW, Color.GREEN, obs) # Add birds
+            else:
+                draw_obj(WINDOW, Color.ORANGE, obs) # Add cactus
 
 
-    # Obstacles
-    for obs in obstacles[:]:
-        obs.pos[0] -= obs_speed
+        pygame.draw.line(WINDOW, Color.WHITE, Config.GROUND_START, Config.GROUND_END, width= 3)
+        pygame.display.set_caption("Dinosour Game")
+        pygame.display.flip()
 
-        if obs.pos[0] + obs.size[0] < 0:
-            obstacles.remove(obs)
-
-        obs_rect = pygame.Rect(obs.pos,obs.size) # type: ignore
-        if obs_rect.colliderect(dinosour):
-            is_touch = True
+        if GameFlags.is_touch:
+            print("GAME OVER")
+            break
 
 
-    # Check the current position of the object
-    # print(dinosour)
-
-    # Check the number of obstacles
-    # print(obstacles)
-
-
-    # Clouds
-    if current_time - last_spawn >= CLOUD_SPAWN_INTERVAL:
-        create_cloud()
-        last_spawn = current_time
-
-    for cloud in clouds[:]:
-        cloud.pos[0] -= CLOUD_SPEED
-        if cloud.pos[0] + cloud.size[0] < 0:
-            clouds.remove(cloud)
-
-
-    WINDOW.fill(BLACK)
-    pygame.display.set_caption("Dinosour Game")
-
-    for cloud in clouds[:]:
-        draw_clouds(cloud) # Add clouds
-
-    pygame.draw.rect(WINDOW, RED, dinosour) # type: ignore
-
-    for obs in obstacles[:]:
-        draw_obs(obs) # Add cactus and bird
-
-    pygame.draw.line(WINDOW, WHITE, START_POINT, END_POINT, width= 3)
-    pygame.display.flip()
-
-    if is_touch:
-        print("GAME OVER")
-        break
-
-pygame.quit()
+if __name__ == '__main__':
+    main()
+    pygame.quit()
